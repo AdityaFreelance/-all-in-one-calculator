@@ -1,28 +1,27 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Card from '../ui/Card';
 
 const BasicCalculator: React.FC = () => {
     const [display, setDisplay] = useState('0');
     const [expression, setExpression] = useState('');
 
-    const handleInput = (value: string) => {
+    const handleInput = useCallback((value: string) => {
         if (display === '0' && value !== '.') {
             setDisplay(value);
             setExpression(value);
         } else {
-            setDisplay(display + value);
-            setExpression(expression + value);
+            setDisplay(prev => prev + value);
+            setExpression(prev => prev + value);
         }
-    };
+    }, [display]);
     
-    const handleOperator = (operator: string) => {
+    const handleOperator = useCallback((operator: string) => {
         if (expression.slice(-1) === ' ') return;
-        setDisplay(display + ` ${operator} `);
-        setExpression(expression + ` ${operator} `);
-    };
+        setDisplay(prev => prev + ` ${operator} `);
+        setExpression(prev => prev + ` ${operator} `);
+    }, [expression]);
 
-    const calculateResult = () => {
+    const calculateResult = useCallback(() => {
         try {
             // eslint-disable-next-line no-eval
             const result = eval(expression.replace(/%/g, '/100*'));
@@ -32,22 +31,49 @@ const BasicCalculator: React.FC = () => {
             setDisplay('Error');
             setExpression('');
         }
-    };
+    }, [expression]);
 
-    const clearDisplay = () => {
+    const clearDisplay = useCallback(() => {
         setDisplay('0');
         setExpression('');
-    };
+    }, []);
 
-    const backspace = () => {
+    const backspace = useCallback(() => {
         if (display.length > 1) {
-            setDisplay(display.slice(0, -1));
-            setExpression(expression.slice(0, -1));
+            setDisplay(prev => prev.slice(0, -1));
+            setExpression(prev => prev.slice(0, -1));
         } else {
             setDisplay('0');
             setExpression('');
         }
-    };
+    }, [display]);
+
+    useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+            event.preventDefault();
+            const { key } = event;
+
+            if (/\d/.test(key)) {
+                handleInput(key);
+            } else if (['+', '-', '*', '/', '%'].includes(key)) {
+                handleOperator(key);
+            } else if (key === '.') {
+                handleInput('.');
+            } else if (key === 'Enter' || key === '=') {
+                calculateResult();
+            } else if (key === 'Backspace') {
+                backspace();
+            } else if (key === 'Escape' || key.toLowerCase() === 'c') {
+                clearDisplay();
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [handleInput, handleOperator, calculateResult, backspace, clearDisplay]);
 
     const buttons = [
         { label: 'C', handler: clearDisplay, className: 'bg-red-500 hover:bg-red-600' },

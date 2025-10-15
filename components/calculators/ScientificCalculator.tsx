@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Card from '../ui/Card';
 
 // This is a simplified version. A full implementation would require a more robust parsing engine than eval().
@@ -13,15 +12,15 @@ const ScientificCalculator: React.FC = () => {
         return n * factorial(n - 1);
     };
 
-    const handleInput = (value: string) => {
+    const handleInput = useCallback((value: string) => {
         if (display === 'Error') {
             setDisplay(value);
             return;
         }
-        setDisplay(prev => (prev === '0' ? value : prev + value));
-    };
+        setDisplay(prev => (prev === '0' && value !== '.') ? value : prev + value);
+    }, [display]);
 
-    const handleFunction = (func: string) => {
+    const handleFunction = useCallback((func: string) => {
         try {
             let currentVal = parseFloat(display);
             let result;
@@ -46,9 +45,9 @@ const ScientificCalculator: React.FC = () => {
         } catch {
             setDisplay('Error');
         }
-    }
+    }, [display, isRadians]);
     
-    const calculateResult = () => {
+    const calculateResult = useCallback(() => {
         try {
             // A more robust solution would use a math expression parser library instead of eval
             // This is for demonstration purposes.
@@ -58,10 +57,37 @@ const ScientificCalculator: React.FC = () => {
         } catch (error) {
             setDisplay('Error');
         }
-    };
+    }, [display]);
 
-    const clearDisplay = () => setDisplay('0');
-    const backspace = () => setDisplay(prev => prev.length > 1 ? prev.slice(0, -1) : '0');
+    const clearDisplay = useCallback(() => setDisplay('0'), []);
+    const backspace = useCallback(() => setDisplay(prev => prev.length > 1 ? prev.slice(0, -1) : '0'), []);
+
+    useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+            event.preventDefault();
+            const { key } = event;
+
+            if (/\d/.test(key) || ['(', ')'].includes(key)) {
+                handleInput(key);
+            } else if (['+', '-', '*', '/', '^', '%'].includes(key)) {
+                handleInput(` ${key} `);
+            } else if (key === '.') {
+                handleInput('.');
+            } else if (key === 'Enter' || key === '=') {
+                calculateResult();
+            } else if (key === 'Backspace') {
+                backspace();
+            } else if (key === 'Escape' || key.toLowerCase() === 'c') {
+                clearDisplay();
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [handleInput, calculateResult, backspace, clearDisplay]);
 
     const buttons = [
         'sin', 'cos', 'tan', 'log', 'C',
